@@ -1,0 +1,9 @@
+pandas
+numpy
+pyyaml
+scipy
+matplotlib
+plotly
+streamlit
+tqdm
+typing_extensions

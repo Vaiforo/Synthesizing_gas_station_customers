@@ -1,0 +1,63 @@
+personas:
+  Commuter:
+    description: "Часто заправляется по утрам по пути на работу. Любит кофе, избегает очередей."
+    share: 0.30 # доля таких клиентов
+    visits_per_week: 5
+    avg_check: 1500
+    fuel_liters_mean: 20
+    fuel_liters_sd: 5
+    coffee_attach_rate: 0.7
+    carwash_attach_rate: 0.1
+    morning_share: 0.8
+    weekend_share: 0.1
+
+  Thrifty:
+    description: "Редко заправляется, ищет скидки и заправляет полный бак."
+    share: 0.25
+    visits_per_week: 1
+    avg_check: 2500
+    fuel_liters_mean: 50
+    fuel_liters_sd: 10
+    coffee_attach_rate: 0.05
+    carwash_attach_rate: 0.05
+    morning_share: 0.2
+    weekend_share: 0.3
+
+  Weekend:
+    description: "Ездит в основном по выходным, часто перед поездкой за город."
+    share: 0.25
+    visits_per_week: 1.5
+    avg_check: 2000
+    fuel_liters_mean: 40
+    fuel_liters_sd: 8
+    coffee_attach_rate: 0.4
+    carwash_attach_rate: 0.25
+    morning_share: 0.3
+    weekend_share: 0.8
+
+  Shopper:
+    description: "Заезжает по пути ради кофе и мелких покупок, часто вечером."
+    share: 0.20
+    visits_per_week: 3
+    avg_check: 1200
+    fuel_liters_mean: 15
+    fuel_liters_sd: 5
+    coffee_attach_rate: 0.5
+    carwash_attach_rate: 0.2
+    morning_share: 0.1
+    weekend_share: 0.4
+
+campaigns:
+  fuel_discount:
+    description: "Скидка 5% на топливо для экономных клиентов"
+    target_personas: ["Thrifty", "Weekend"]
+    uplift_visits_pct: 0.5 # +50% к частоте визитов
+    uplift_avg_check_pct: 0.10 # +10% к среднему чеку
+    uplift_coffee_attach: 0.02 # незначительный рост интереса к кофе
+
+  coffee_coupon:
+    description: "Бесплатный кофе утром для частых клиентов"
+    target_personas: ["Commuter", "Shopper"]
+    uplift_visits_pct: 0.1 # +10% визитов
+    uplift_avg_check_pct: 0.05 # немного растёт чек (берут доп.товары)
+    uplift_coffee_attach: 0.25 # +25 п.п. к attach-rate кофе
