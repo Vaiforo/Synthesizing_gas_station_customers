@@ -1,11 +1,9 @@
-"""
-Утилиты для Streamlit-приложения:
-- загрузка/сохранение YAML-конфига
-- кэшированные вызовы генерации/фичей/маппинга/кампаний
-- удобные хелперы для путей и download-данных
-"""
 from __future__ import annotations
-import io
+from src.metrics import compute_kpis, compare_groups
+from src.campaigns import apply_campaign
+from src.mapping_rules import map_users_rule
+from src.features import build_user_features
+from src.data_gen import generate_customers, generate_transactions
 import yaml
 import pandas as pd
 from pathlib import Path
@@ -15,13 +13,12 @@ try:
     import streamlit as st
 
     cache_data = st.cache_data
-except Exception:  # pragma: no cover
+except Exception:
     def _identity(x=None, **kwargs):
         def inner(func):
             return func
         return inner
-    cache_data = _identity  # type: ignore
-
+    cache_data = _identity
 
 
 BASE_DIR = Path(".")
@@ -40,11 +37,11 @@ KPI_SUMMARY_CSV = REPORTS_DIR / "kpi_summary.csv"
 CAMPAIGN_RESULTS_JSON = REPORTS_DIR / "campaign_results.json"
 
 
-
 @cache_data(show_spinner=False)
 def load_config(path: Path = CONFIG_PATH) -> Dict[str, Any]:
     with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
+
 
 def save_config(cfg: Dict[str, Any], path: Path = CONFIG_PATH) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -52,41 +49,37 @@ def save_config(cfg: Dict[str, Any], path: Path = CONFIG_PATH) -> None:
         yaml.safe_dump(cfg, f, allow_unicode=True, sort_keys=False)
 
 
-
 def ensure_dirs() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
+
 def df_to_csv_bytes(df: pd.DataFrame) -> bytes:
     return df.to_csv(index=False).encode("utf-8")
+
 
 def obj_to_json_bytes(obj: Dict[str, Any]) -> bytes:
     import json
     return json.dumps(obj, ensure_ascii=False, indent=2).encode("utf-8")
 
 
-
-from src.data_gen import generate_customers, generate_transactions  # noqa: E402
-from src.features import build_user_features  # noqa: E402
-from src.mapping_rules import map_users_rule  # noqa: E402
-from src.campaigns import apply_campaign  # noqa: E402
-from src.metrics import compute_kpis, compare_groups  # noqa: E402
-
-
-
 @cache_data(show_spinner=False)
 def cached_generate(n_users: int, days: int, cfg: Dict[str, Any], seed: int = 42) -> Tuple[pd.DataFrame, pd.DataFrame]:
     customers = generate_customers(n_customers=n_users, cfg=cfg, seed=seed)
-    transactions = generate_transactions(customers, cfg=cfg, days=days, seed=seed)
+    transactions = generate_transactions(
+        customers, cfg=cfg, days=days, seed=seed)
     return customers, transactions
+
 
 @cache_data(show_spinner=False)
 def cached_features(transactions: pd.DataFrame) -> pd.DataFrame:
     return build_user_features(transactions)
 
+
 @cache_data(show_spinner=False)
 def cached_mapping(features: pd.DataFrame, cfg: Dict[str, Any]) -> pd.DataFrame:
     return map_users_rule(features, cfg)
+
 
 @cache_data(show_spinner=False)
 def cached_apply_campaign(
@@ -108,14 +101,15 @@ def cached_apply_campaign(
         seed=seed,
     )
 
+
 @cache_data(show_spinner=False)
 def cached_kpis(transactions: pd.DataFrame, cohort: pd.DataFrame) -> pd.DataFrame:
     return compute_kpis(transactions, cohort)
 
+
 @cache_data(show_spinner=False)
 def cached_compare(kpi_df: pd.DataFrame) -> pd.DataFrame:
     return compare_groups(kpi_df)
-
 
 
 def run_demo_pipeline(
@@ -125,16 +119,6 @@ def run_demo_pipeline(
     use_mapped_persona: bool = False,
     seed: int = 42,
 ) -> Dict[str, Any]:
-    """
-    Полный прогон:
-      1) загрузить конфиг
-      2) сгенерить customers, transactions
-      3) посчитать features
-      4) сделать mapping (rule-based)
-      5) применить кампанию к целевому сегменту
-      6) KPI A/B и сравнение
-    Возвращает словарь со всеми артефактами.
-    """
     ensure_dirs()
     cfg = load_config()
 
@@ -142,8 +126,6 @@ def run_demo_pipeline(
     features = cached_features(transactions)
     mapping = cached_mapping(features, cfg)
 
-    # Для применения кампании можно таргетироваться по исходной персоне (из генерации)
-    # либо по назначенной (после mapping). Управляется флагом use_mapped_persona.
     if use_mapped_persona:
         customers_seg = customers.merge(mapping, on="customer_id", how="left")
         seg_col = "assigned_persona"
@@ -155,7 +137,8 @@ def run_demo_pipeline(
         tx_after, cohort_ab, meta = cached_apply_campaign(
             campaign_name=campaign_name,
             transactions=transactions,
-            customers_for_segment=customers_seg[["customer_id", seg_col]].rename(columns={seg_col: "persona"}),
+            customers_for_segment=customers_seg[["customer_id", seg_col]].rename(columns={
+                                                                                 seg_col: "persona"}),
             cfg=cfg,
             segment_col="persona",
             ratio=0.5,
@@ -181,9 +164,7 @@ def run_demo_pipeline(
     }
 
 
-
 def persist_artifacts(art: Dict[str, Any]) -> None:
-    """Сохранить ключевые артефакты пайплайна в /data и /reports."""
     ensure_dirs()
     if isinstance(art.get("customers"), pd.DataFrame):
         art["customers"].to_csv(CUSTOMERS_CSV, index=False)
@@ -200,8 +181,8 @@ def persist_artifacts(art: Dict[str, Any]) -> None:
     if isinstance(art.get("kpi"), pd.DataFrame) and not art["kpi"].empty:
         art["kpi"].to_csv(KPI_SUMMARY_CSV, index=False)
 
+
 def make_downloads(art: Dict[str, Any]) -> Dict[str, bytes]:
-    """Сформировать набор 'имя → bytes' для download-кнопок в Streamlit."""
     out: Dict[str, bytes] = {}
     for key in ["customers", "transactions", "features", "mapping", "cohort", "transactions_after", "kpi", "compare"]:
         val = art.get(key)
