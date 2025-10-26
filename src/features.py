@@ -3,25 +3,22 @@ import numpy as np
 from pathlib import Path
 
 
-MORNING_HOURS = (6, 11)  # считаем "утро" как [06:00, 11:00)
+MORNING_HOURS = (6, 11)
+
 
 def _ensure_datetime_cols(df: pd.DataFrame) -> pd.DataFrame:
-    """Гарантируем наличие столбцов datetime-представлений для расчётов."""
     out = df.copy()
 
-    # date -> datetime.date
     if "date" in out.columns:
         out["date"] = pd.to_datetime(out["date"]).dt.date
 
-    # time -> datetime.time
     if "time" in out.columns:
-        out["time"] = pd.to_datetime(out["time"].astype(str), errors="coerce").dt.time
+        out["time"] = pd.to_datetime(
+            out["time"].astype(str), errors="coerce").dt.time
 
-    # datetime (если есть) → разбор
     if "datetime" in out.columns:
         out["datetime"] = pd.to_datetime(out["datetime"], errors="coerce")
 
-    # Если нет datetime, можно склеить date+time, если оба есть
     if "datetime" not in out.columns and {"date", "time"} <= set(out.columns):
         out["datetime"] = pd.to_datetime(
             out["date"].astype(str) + " " + out["time"].astype(str), errors="coerce"
@@ -31,13 +28,10 @@ def _ensure_datetime_cols(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _compute_period_months(user_tx: pd.DataFrame) -> float:
-    """Оценка длины периода наблюдения в месяцах для пользователя (≈ days/30)."""
-    # Пытаемся по datetime, иначе по date
     if "datetime" in user_tx.columns and user_tx["datetime"].notna().any():
         tmin = user_tx["datetime"].min()
         tmax = user_tx["datetime"].max()
     else:
-        # падение назад на date
         tmin = pd.to_datetime(user_tx["date"]).min()
         tmax = pd.to_datetime(user_tx["date"]).max()
 
@@ -46,13 +40,11 @@ def _compute_period_months(user_tx: pd.DataFrame) -> float:
 
 
 def _is_weekend(series_dates: pd.Series) -> pd.Series:
-    """Флаг выходного по столбцу date (datetime.date или datetime64)."""
     d = pd.to_datetime(series_dates)
-    return d.dt.weekday >= 5  # 5=Saturday, 6=Sunday
+    return d.dt.weekday >= 5
 
 
 def _is_morning(series_dt: pd.Series) -> pd.Series:
-    """Флаг утренних транзакций по datetime; если нет данных — возвращаем NaN."""
     if series_dt.isna().all():
         return pd.Series(np.nan, index=series_dt.index)
     hours = series_dt.dt.hour
@@ -60,32 +52,23 @@ def _is_morning(series_dt: pd.Series) -> pd.Series:
 
 
 def build_user_features(transactions: pd.DataFrame) -> pd.DataFrame:
-    """
-    Возвращает агрегаты по каждому customer_id:
-      - visits_total: общее число визитов
-      - visits_per_month: визитов в месяц (нормировано на длительность наблюдения)
-      - avg_check: средний чек
-      - avg_fuel_liters: средний объём топлива
-      - coffee_attach_rate / carwash_attach_rate
-      - morning_share: доля утренних визитов (если неизвестно время — NaN)
-      - weekend_share: доля визитов в выходные
-      - (опц.) persona_mode: мода по исходной колонке 'persona', если она есть
-    """
     tx = _ensure_datetime_cols(transactions)
 
     needed_cols = {"customer_id", "amount", "fuel_liters"}
     missing = needed_cols - set(tx.columns)
     if missing:
-        raise ValueError(f"В transactions отсутствуют обязательные колонки: {missing}")
+        raise ValueError(
+            f"В transactions отсутствуют обязательные колонки {missing}")
 
-    # Предварительные признаки на уровне строк
     has_datetime = "datetime" in tx.columns and tx["datetime"].notna().any()
-    tx["is_weekend"] = _is_weekend(tx["date"]) if "date" in tx.columns else False
+    tx["is_weekend"] = _is_weekend(
+        tx["date"]) if "date" in tx.columns else False
     tx["is_morning"] = _is_morning(tx["datetime"]) if has_datetime else np.nan
-    tx["coffee"] = tx["coffee"].fillna(0).astype(int) if "coffee" in tx.columns else 0
-    tx["carwash"] = tx["carwash"].fillna(0).astype(int) if "carwash" in tx.columns else 0
+    tx["coffee"] = tx["coffee"].fillna(0).astype(
+        int) if "coffee" in tx.columns else 0
+    tx["carwash"] = tx["carwash"].fillna(0).astype(
+        int) if "carwash" in tx.columns else 0
 
-    # Агрегации на пользователя
     grp = tx.groupby("customer_id", as_index=True)
 
     agg = grp.agg(
@@ -96,20 +79,22 @@ def build_user_features(transactions: pd.DataFrame) -> pd.DataFrame:
         coffee_sum=("coffee", "sum"),
         carwash_sum=("carwash", "sum"),
         weekend_sum=("is_weekend", "sum"),
-        morning_sum=("is_morning", lambda s: np.nan if s.isna().all() else s.sum()),
+        morning_sum=(
+            "is_morning", lambda s: np.nan if s.isna().all() else s.sum()),
     )
 
-    # Длина периода в месяцах — считаем на пользователя (разная активность/покрытие)
     period_months = grp.apply(_compute_period_months).rename("period_months")
     agg = agg.join(period_months)
 
-    # Производные метрики
-    agg["visits_per_month"] = agg["visits_total"] / agg["period_months"].replace(0, np.nan)
-    agg["coffee_attach_rate"] = agg["coffee_sum"] / agg["visits_total"].replace(0, np.nan)
-    agg["carwash_attach_rate"] = agg["carwash_sum"] / agg["visits_total"].replace(0, np.nan)
-    agg["weekend_share"] = agg["weekend_sum"] / agg["visits_total"].replace(0, np.nan)
+    agg["visits_per_month"] = agg["visits_total"] / \
+        agg["period_months"].replace(0, np.nan)
+    agg["coffee_attach_rate"] = agg["coffee_sum"] / \
+        agg["visits_total"].replace(0, np.nan)
+    agg["carwash_attach_rate"] = agg["carwash_sum"] / \
+        agg["visits_total"].replace(0, np.nan)
+    agg["weekend_share"] = agg["weekend_sum"] / \
+        agg["visits_total"].replace(0, np.nan)
 
-    # Утро: если времени нет → NaN; иначе доля
     def _morning_share(row):
         if np.isnan(row["morning_sum"]):
             return np.nan
@@ -117,15 +102,13 @@ def build_user_features(transactions: pd.DataFrame) -> pd.DataFrame:
 
     agg["morning_share"] = agg.apply(_morning_share, axis=1)
 
-    # (опционально) мода по persona, если присутствует в транзакциях
     if "persona" in tx.columns:
-        persona_mode = grp["persona"].agg(lambda s: s.mode().iat[0] if not s.mode().empty else np.nan)
+        persona_mode = grp["persona"].agg(
+            lambda s: s.mode().iat[0] if not s.mode().empty else np.nan)
         agg["persona_mode"] = persona_mode
 
-    # Чистим бесконечности/NaN
     agg = agg.replace([np.inf, -np.inf], np.nan).reset_index()
 
-    # Итоговый набор фичей для маппинга/аналитики
     features = agg[
         [
             "customer_id",
@@ -146,14 +129,13 @@ def build_user_features(transactions: pd.DataFrame) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    # Пример: читаем data/transactions.csv → считаем фичи → сохраняем data/features.csv
     tx_path = Path("data/transactions.csv")
     if not tx_path.exists():
-        print("Не найден data/transactions.csv — сначала сгенерируйте данные.")
+        print("Не найден data/transactions.csv")
         raise SystemExit(1)
 
     tx = pd.read_csv(tx_path)
     feats = build_user_features(tx)
     out_path = Path("data/features.csv")
     feats.to_csv(out_path, index=False)
-    print(f"Сохранено: {out_path} ({len(feats)} строк)")
+    print(f"Сохранено {out_path} ({len(feats)} строк)")

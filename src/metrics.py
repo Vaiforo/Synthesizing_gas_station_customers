@@ -1,22 +1,14 @@
-# src/metrics.py
 import pandas as pd
 import numpy as np
 from scipy import stats
 from pathlib import Path
 
+
 def compute_kpis(transactions: pd.DataFrame, cohort: pd.DataFrame) -> pd.DataFrame:
-    """
-    Считает метрики по каждой группе A/B (по cohort.group):
-      - users: число уникальных клиентов
-      - visits_per_user: среднее число визитов на клиента
-      - revenue_per_user: средняя выручка на клиента
-      - coffee_attach_rate: доля транзакций с кофе
-      - carwash_attach_rate: доля транзакций с мойкой
-    """
     tx = transactions.copy()
     df = tx.merge(cohort, on="customer_id", how="inner")
     if "group" not in df.columns:
-        raise ValueError("cohort должен содержать колонку 'group' (A/B).")
+        raise ValueError("cohort должен содержать колонку 'group' (A/B)")
 
     group_stats = []
     for g, sub in df.groupby("group"):
@@ -24,8 +16,10 @@ def compute_kpis(transactions: pd.DataFrame, cohort: pd.DataFrame) -> pd.DataFra
         visits = len(sub)
         visits_per_user = visits / users if users else 0
         revenue_per_user = sub["amount"].sum() / users if users else 0
-        coffee_attach = sub["coffee"].mean() if "coffee" in sub.columns else np.nan
-        carwash_attach = sub["carwash"].mean() if "carwash" in sub.columns else np.nan
+        coffee_attach = sub["coffee"].mean(
+        ) if "coffee" in sub.columns else np.nan
+        carwash_attach = sub["carwash"].mean(
+        ) if "carwash" in sub.columns else np.nan
         group_stats.append(
             {
                 "group": g,
@@ -40,9 +34,6 @@ def compute_kpis(transactions: pd.DataFrame, cohort: pd.DataFrame) -> pd.DataFra
 
 
 def compare_groups(kpi_df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Вычисляет дельты между A и B для основных KPI и p-value (t-test, если возможно).
-    """
     if set(kpi_df["group"]) != {"A", "B"}:
         raise ValueError("Ожидаются группы A и B в kpi_df.")
 
@@ -54,8 +45,8 @@ def compare_groups(kpi_df: pd.DataFrame) -> pd.DataFrame:
         a_val = kpi_df.loc["A", m]
         b_val = kpi_df.loc["B", m]
         delta = (b_val - a_val) / a_val * 100 if a_val else np.nan
-        # p-value заглушка (без индивидуальных наблюдений)
-        res.append({"metric": m, "A": a_val, "B": b_val, "delta_%": delta, "p_value": np.nan})
+        res.append({"metric": m, "A": a_val, "B": b_val,
+                   "delta_%": delta, "p_value": np.nan})
 
     return pd.DataFrame(res)
 
@@ -65,16 +56,16 @@ if __name__ == "__main__":
     cohort_path = Path("data/cohort_ab.csv")
 
     if not (tx_path.exists() and cohort_path.exists()):
-        print("⚠️  Не найдены входные файлы: data/transactions_after.csv и data/cohort_ab.csv")
+        print("Не найдены входные файлы data/transactions_after.csv и data/cohort_ab.csv")
         raise SystemExit(1)
 
     tx = pd.read_csv(tx_path)
     cohort = pd.read_csv(cohort_path)
 
     kpi = compute_kpis(tx, cohort)
-    print("=== KPI по группам ===")
+    print("KPI по группам")
     print(kpi)
 
     cmp = compare_groups(kpi)
-    print("\n=== Сравнение A vs B ===")
+    print("\nСравнение A vs B")
     print(cmp)
