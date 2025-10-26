@@ -16,22 +16,12 @@ def _rand_between(a: int, b: int) -> int:
 
 
 def _biased_hour(persona: str, p: dict, is_weekend: bool) -> int:
-    # Если данных недостаточно - берем данные с прортрета
-    if persona.lower().startswith("commuter"):
-        if random.random() < p.get("morning_share", 0.6):
-            return _rand_between(6, 10)
-        return _rand_between(17, 20)
-
-    if persona.lower().startswith("weekend"):
+    r = random.random()
+    if r < float(p.get("morning_share", 0.3)):
+        return _rand_between(6, 10)
+    if is_weekend or (random.random() < float(p.get("weekend_share", 0.3))):
         return _rand_between(10, 18)
-
-    if persona.lower().startswith("shopper"):
-        return _rand_between(12, 21)
-
-    if persona.lower().startswith("thrifty"):
-        return _rand_between(20, 23)
-
-    return _rand_between(8, 20)
+    return _rand_between(12, 21)
 
 
 def _pick_datetime(start_date: datetime, days: int, persona: str, p: dict) -> datetime:

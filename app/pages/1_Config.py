@@ -24,6 +24,56 @@ except FileNotFoundError:
 personas = cfg.get("personas", {})
 campaigns = cfg.get("campaigns", {})
 
+st.subheader("Создать новую персону")
+with st.form("create_persona_form", clear_on_submit=True):
+    new_name = st.text_input(
+        "Имя персоны (латиницей/слитно)", value="NewPersona")
+    col_a, col_b = st.columns(2)
+    with col_a:
+        share = st.number_input(
+            "Доля сегмента (0..1)", min_value=0.0, max_value=1.0, value=0.10, step=0.01)
+        visits = st.number_input(
+            "Визитов/нед", min_value=0.1, max_value=14.0, value=2.0, step=0.1)
+        avg_check = st.number_input(
+            "Средний чек (₽)", min_value=100.0, max_value=10000.0, value=1500.0, step=50.0)
+        fuel_mean = st.number_input(
+            "Средний объём топлива (л)", min_value=5.0, max_value=120.0, value=25.0, step=1.0)
+        fuel_sd = st.number_input(
+            "Ст.откл. объёма топлива", min_value=0.1, max_value=40.0, value=6.0, step=0.1)
+    with col_b:
+        coffee = st.slider("Attach-rate кофе", 0.0, 1.0, 0.3, 0.01)
+        carwash = st.slider("Attach-rate мойки", 0.0, 1.0, 0.1, 0.01)
+        morning = st.slider("Доля утренних визитов", 0.0, 1.0, 0.3, 0.01)
+        weekend = st.slider("Доля визитов в выходные", 0.0, 1.0, 0.3, 0.01)
+    desc = st.text_area("Описание", value="Новый портрет клиента")
+
+    submitted = st.form_submit_button("Добавить персону")
+    if submitted:
+        if not new_name or new_name in personas:
+            st.error("Имя пустое или такая персона уже существует.")
+        else:
+            p = {
+                "description": desc,
+                "share": share,
+                "visits_per_week": visits,
+                "avg_check": avg_check,
+                "fuel_liters_mean": fuel_mean,
+                "fuel_liters_sd": fuel_sd,
+                "coffee_attach_rate": coffee,
+                "carwash_attach_rate": carwash,
+                "morning_share": morning,
+                "weekend_share": weekend,
+            }
+            errs = validate_persona(p)
+            if errs:
+                st.error("Ошибки: " + "; ".join(errs))
+            else:
+                personas[new_name] = p
+                cfg["personas"] = personas
+                cfg = normalize_persona_shares(cfg)
+                save_config(cfg, CONFIG_PATH)
+                st.rerun()
+
 st.subheader("Портреты клиентов")
 st.caption("Основные параметры, влияющие на поведение и генерацию транзакций.")
 
@@ -54,6 +104,16 @@ for idx, (name, p) in enumerate(personas.items()):
                 "Доля визитов в выходные", 0.0, 1.0, float(p.get("weekend_share", 0.3)), key=f"{name}_weekend"
             )
             personas[name] = p
+
+st.subheader("Удалить персону")
+del_name = st.selectbox("Выберите персону для удаления",
+                        list(personas.keys()) if personas else [])
+if st.button("Удалить выбранную персону", disabled=not del_name):
+    personas.pop(del_name, None)
+    cfg["personas"] = personas
+    cfg = normalize_persona_shares(cfg)
+    save_config(cfg, CONFIG_PATH)
+    st.rerun()
 
 st.divider()
 

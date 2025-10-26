@@ -37,7 +37,6 @@ KPI_SUMMARY_CSV = REPORTS_DIR / "kpi_summary.csv"
 CAMPAIGN_RESULTS_JSON = REPORTS_DIR / "campaign_results.json"
 
 
-@cache_data(show_spinner=False)
 def load_config(path: Path = CONFIG_PATH) -> Dict[str, Any]:
     with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
@@ -47,6 +46,51 @@ def save_config(cfg: Dict[str, Any], path: Path = CONFIG_PATH) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         yaml.safe_dump(cfg, f, allow_unicode=True, sort_keys=False)
+
+
+def default_persona(name: str = "NewPersona") -> dict:
+    return {
+        "description": "Новый портрет клиента",
+        "share": 0.10,
+        "visits_per_week": 2.0,
+        "avg_check": 1500.0,
+        "fuel_liters_mean": 25.0,
+        "fuel_liters_sd": 6.0,
+        "coffee_attach_rate": 0.3,
+        "carwash_attach_rate": 0.1,
+        "morning_share": 0.3,
+        "weekend_share": 0.3,
+    }
+
+
+def normalize_persona_shares(cfg: dict) -> dict:
+    pers = cfg.get("personas", {})
+    total = sum(float(p.get("share", 0.0)) for p in pers.values()) or 1.0
+    for k, v in pers.items():
+        v["share"] = float(v.get("share", 0.0)) / total
+    return cfg
+
+
+def validate_persona(p: dict) -> list[str]:
+    errs = []
+
+    def between0_1(x, name):
+        if not (0.0 <= float(x) <= 1.0):
+            errs.append(f"{name} должен быть в [0,1]")
+
+    def gt0(x, name):
+        if float(x) <= 0:
+            errs.append(f"{name} должен быть > 0")
+    between0_1(p.get("share", 0.0), "share")
+    between0_1(p.get("coffee_attach_rate", 0.0), "coffee_attach_rate")
+    between0_1(p.get("carwash_attach_rate", 0.0), "carwash_attach_rate")
+    between0_1(p.get("morning_share", 0.0), "morning_share")
+    between0_1(p.get("weekend_share", 0.0), "weekend_share")
+    gt0(p.get("visits_per_week", 0), "visits_per_week")
+    gt0(p.get("avg_check", 0), "avg_check")
+    gt0(p.get("fuel_liters_mean", 0), "fuel_liters_mean")
+    gt0(p.get("fuel_liters_sd", 0.1), "fuel_liters_sd")
+    return errs
 
 
 def ensure_dirs() -> None:
