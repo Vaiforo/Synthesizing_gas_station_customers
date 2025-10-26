@@ -1,6 +1,8 @@
+import streamlit as st
+
+from app._utils import save_config, CONFIG_PATH, clear_all_caches, validate_campaign
 from app._utils import default_persona, normalize_persona_shares, validate_persona
 from app._utils import CONFIG_PATH, load_config, save_config
-import streamlit as st
 
 
 st.set_page_config(page_title="Конфигурация портретов", layout="wide")
@@ -117,6 +119,61 @@ if st.button("Удалить выбранную персону", disabled=not de
 
 st.divider()
 
+
+st.subheader("Создать новую кампанию")
+
+with st.form("create_campaign_form", clear_on_submit=True):
+    c_name = st.text_input(
+        "Имя кампании (латиницей/слитно)", value="new_campaign")
+    c_type = st.selectbox(
+        "Тип кампании", ["simple", "morning_coffee"], index=0)
+    tps = st.multiselect("Целевые персоны", list(personas.keys()))
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        up_vis = st.slider("Рост визитов (%)", 0.0, 1.0, 0.10, 0.01)
+    with col2:
+        up_amt = st.slider("Рост среднего чека (%)", 0.0, 1.0, 0.05, 0.01)
+    with col3:
+        up_cof = st.slider("Рост attach кофе (абс. п.п.)",
+                           0.0, 1.0, 0.10, 0.01)
+
+    if c_type == "morning_coffee":
+        h1, h2 = st.columns(2)
+        with h1:
+            start_h = st.number_input("Начальный час окна", 0, 23, 6, 1)
+        with h2:
+            end_h = st.number_input("Конечный час окна", 0, 23, 11, 1)
+        time_window = [int(start_h), int(end_h)]
+    else:
+        time_window = None
+
+    desc = st.text_area("Описание", value="Новая маркетинговая кампания")
+
+    btn = st.form_submit_button("Добавить кампанию")
+    if btn:
+        if c_name in campaigns:
+            st.error("Кампания с таким именем уже существует.")
+        else:
+            new_c = {
+                "type": c_type,
+                "description": desc,
+                "target_personas": tps,
+                "uplift_visits_pct": float(up_vis),
+                "uplift_avg_check_pct": float(up_amt),
+                "uplift_coffee_attach": float(up_cof),
+            }
+            if time_window:
+                new_c["time_window"] = time_window
+            errs = validate_campaign(c_name, new_c, personas)
+            if errs:
+                st.error("Ошибки: " + "; ".join(errs))
+            else:
+                campaigns[c_name] = new_c
+                cfg["campaigns"] = campaigns
+                save_config(cfg, CONFIG_PATH)
+                clear_all_caches()
+                st.rerun()
+
 st.subheader("Кампании")
 st.caption("Настройки uplift-эффектов для экспериментов.")
 
@@ -136,6 +193,18 @@ for idx, (name, c) in enumerate(campaigns.items()):
             "Рост attach кофе (абс. п.п.)", 0.0, 1.0, float(c.get("uplift_coffee_attach", 0.1)), 0.01, key=f"{name}_coffee"
         )
         campaigns[name] = c
+
+st.subheader("Удалить кампанию")
+del_c = st.selectbox("Выберите кампанию", list(
+    campaigns.keys()) if campaigns else [])
+if st.button("Удалить выбранную кампанию", disabled=not del_c):
+    campaigns.pop(del_c, None)
+    cfg["campaigns"] = campaigns
+    save_config(cfg, CONFIG_PATH)
+    clear_all_caches()
+    st.success(f"Кампания '{del_c}' удалена.")
+    st.rerun()
+
 
 st.divider()
 

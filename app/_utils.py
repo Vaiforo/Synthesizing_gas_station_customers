@@ -48,6 +48,15 @@ def save_config(cfg: Dict[str, Any], path: Path = CONFIG_PATH) -> None:
         yaml.safe_dump(cfg, f, allow_unicode=True, sort_keys=False)
 
 
+def clear_all_caches():
+    try:
+        import streamlit as st
+        st.cache_data.clear()
+        st.cache_resource.clear()
+    except Exception:
+        pass
+
+
 def default_persona(name: str = "NewPersona") -> dict:
     return {
         "description": "Новый портрет клиента",
@@ -90,6 +99,32 @@ def validate_persona(p: dict) -> list[str]:
     gt0(p.get("avg_check", 0), "avg_check")
     gt0(p.get("fuel_liters_mean", 0), "fuel_liters_mean")
     gt0(p.get("fuel_liters_sd", 0.1), "fuel_liters_sd")
+    return errs
+
+
+def validate_campaign(name: str, c: dict, personas: dict) -> list[str]:
+    errs = []
+    if not name or any(ch.isspace() for ch in name):
+        errs.append("Имя кампании не должно быть пустым и содержать пробелы")
+    typ = c.get("type", "simple")
+    if typ not in {"simple", "morning_coffee"}:
+        errs.append("type должен быть 'simple' или 'morning_coffee'")
+    tps = c.get("target_personas", [])
+    if not isinstance(tps, list) or not tps:
+        errs.append("Нужно выбрать target_personas (список)")
+    else:
+        unknown = [x for x in tps if x not in personas.keys()]
+        if unknown:
+            errs.append(f"Неизвестные target_personas: {unknown}")
+    for k in ("uplift_visits_pct", "uplift_avg_check_pct", "uplift_coffee_attach"):
+        v = float(c.get(k, 0.0))
+        if v < 0 or v > 1:
+            errs.append(f"{k} должен быть в [0,1]")
+    if typ == "morning_coffee":
+        tw = c.get("time_window", [6, 11])
+        if not (isinstance(tw, (list, tuple)) and len(tw) == 2 and 0 <= int(tw[0]) < int(tw[1]) <= 23):
+            errs.append(
+                "time_window должен быть [start_hour, end_hour], 0..23 и start<end")
     return errs
 
 

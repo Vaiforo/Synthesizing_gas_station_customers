@@ -254,16 +254,104 @@ def apply_campaign(
     cohort_ab = split_cohort(customers, target_personas=targets,
                              segment_col=segment_col, ratio=ratio, seed=seed)
 
-    if campaign_name == "fuel_discount":
-        tx_after, meta = _apply_fuel_discount(
+    typ = camp.get("type") or campaign_name
+
+    if typ == "simple":
+        tx_after, meta = _apply_simple_uplift(
             transactions, customers, cohort_ab, camp, seed=seed)
-    elif campaign_name == "coffee_coupon":
+    elif typ == "morning_coffee" or campaign_name == "coffee_coupon":
         tx_after, meta = _apply_coffee_coupon(
             transactions, customers, cohort_ab, camp, seed=seed)
+    elif typ == "fuel_discount" or campaign_name == "fuel_discount":
+        tx_after, meta = _apply_simple_uplift(
+            transactions, customers, cohort_ab, camp, seed=seed)
     else:
-        raise NotImplementedError(f"Кампания {campaign_name} отсутствует")
+        raise NotImplementedError(f"Кампания типа '{typ}' не реализована.")
 
     return tx_after, cohort_ab, {"campaign": campaign_name, **meta}
+
+
+def _apply_simple_uplift(
+    tx: pd.DataFrame,
+    customers: pd.DataFrame,
+    cohort_ab: pd.DataFrame,
+    campaign_cfg: dict,
+    seed: int = 42,
+) -> Tuple[pd.DataFrame, Dict]:
+    rng = np.random.default_rng(seed)
+    uplift_v = float(campaign_cfg.get("uplift_visits_pct", 0.0))
+    uplift_amount = float(campaign_cfg.get("uplift_avg_check_pct", 0.0))
+    uplift_coffee = float(campaign_cfg.get("uplift_coffee_attach", 0.0))
+
+    tx = _ensure_cols(tx).copy()
+    b_ids = set(cohort_ab.loc[cohort_ab["group"]
+                == "B", "customer_id"].astype(int))
+
+    if uplift_coffee > 0:
+        idx_b_zero_coffee = tx.index[(
+            tx["customer_id"].isin(b_ids)) & (tx["coffee"] == 0)]
+        flips = rng.random(len(idx_b_zero_coffee)) < np.clip(
+            uplift_coffee, 0.0, 1.0)
+        tx.loc[idx_b_zero_coffee[flips], "coffee"] = 1
+    else:
+        flips = np.array([], dtype=bool)
+
+    tx_extra = []
+    tx_by_user = {cid: df for cid, df in tx.groupby("customer_id")}
+    persona_map = customers.set_index("customer_id")["persona"].to_dict()
+    added_count = 0
+
+    for cid in b_ids:
+        base = tx_by_user.get(cid, pd.DataFrame(columns=tx.columns))
+        stats = _user_baseline_stats(base)
+        baseline_visits = len(base) if len(base) > 0 else 4
+        add_n = rng.binomial(baseline_visits, np.clip(uplift_v, 0.0, 1.0))
+        if add_n <= 0:
+            continue
+
+        new_dt = _sample_dt_like(tx, add_n)
+        for i in range(add_n):
+            dt = new_dt.iloc[i] if hasattr(new_dt, "iloc") else new_dt[i]
+            amt = float(stats["avg_amount"]) * \
+                (1.0 + float(rng.normal(0.0, 0.05)))
+            amt *= (1.0 + uplift_amount)
+            fuel = max(5.0, float(stats["avg_fuel"])
+                       * (1.0 + float(rng.normal(0.0, 0.05))))
+            coffee_p = float(
+                np.clip(stats["coffee_rate"] + uplift_coffee, 0.0, 1.0))
+            carwash_p = float(np.clip(stats["carwash_rate"], 0.0, 1.0))
+            c = int(rng.random() < coffee_p)
+            w = int(rng.random() < carwash_p)
+
+            tx_extra.append(
+                [
+                    cid,
+                    persona_map.get(
+                        cid, base["persona"].iloc[0] if not base.empty else "Unknown"),
+                    dt,
+                    dt.date().isoformat(),
+                    dt.strftime("%H:%M:%S"),
+                    round(max(200.0, amt), 2),
+                    round(fuel, 1),
+                    c,
+                    w,
+                ]
+            )
+            added_count += 1
+
+    if tx_extra:
+        add_df = pd.DataFrame(
+            tx_extra,
+            columns=["customer_id", "persona", "datetime", "date",
+                     "time", "amount", "fuel_liters", "coffee", "carwash"],
+        )
+        tx_after = pd.concat([tx, add_df], ignore_index=True)
+    else:
+        tx_after = tx
+
+    meta = {"added_visits": int(added_count), "coffee_flipped": int(
+        flips.sum() if flips.size else 0)}
+    return tx_after.sort_values(["datetime", "customer_id"]).reset_index(drop=True), meta
 
 
 if __name__ == "__main__":

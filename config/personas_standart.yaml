@@ -1,7 +1,8 @@
 # Стандартный файл, если будет нарушен рабочий
 personas:
   Commuter:
-    description: Часто заправляется по утрам по пути на работу. Любит кофе, избегает
+    description:
+      Часто заправляется по утрам по пути на работу. Любит кофе, избегает
       очередей.
     share: 0.2553191489361702
     visits_per_week: 5.0
@@ -47,18 +48,17 @@ personas:
     weekend_share: 0.4
 campaigns:
   fuel_discount:
-    description: Скидка 5% на топливо для экономных клиентов
-    target_personas:
-    - Thrifty
-    - Weekend
+    type: simple
+    description: Скидка 5% на топливо
+    target_personas: ["Thrifty", "Weekend"]
     uplift_visits_pct: 0.5
     uplift_avg_check_pct: 0.1
     uplift_coffee_attach: 0.02
   coffee_coupon:
-    description: Бесплатный кофе утром для частых клиентов
-    target_personas:
-    - Commuter
-    - Shopper
+    type: morning_coffee
+    description: Бесплатный кофе утром
+    target_personas: ["Commuter", "Shopper"]
     uplift_visits_pct: 0.1
     uplift_avg_check_pct: 0.05
     uplift_coffee_attach: 0.25
+    time_window: [6, 11]

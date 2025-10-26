@@ -35,7 +35,7 @@ personas:
     weekend_share: 0.8
   Shopper:
     description: Заезжает по пути ради кофе и мелких покупок, часто вечером.
-    share: 0.2127659574468085
+    share: 0.21276595744680854
     visits_per_week: 3.0
     avg_check: 1200.0
     fuel_liters_mean: 15
@@ -46,7 +46,8 @@ personas:
     weekend_share: 0.4
 campaigns:
   fuel_discount:
-    description: Скидка 5% на топливо для экономных клиентов
+    type: simple
+    description: Скидка 5% на топливо
     target_personas:
     - Thrifty
     - Weekend
@@ -54,10 +55,14 @@ campaigns:
     uplift_avg_check_pct: 0.1
     uplift_coffee_attach: 0.02
   coffee_coupon:
-    description: Бесплатный кофе утром для частых клиентов
+    type: morning_coffee
+    description: Бесплатный кофе утром
     target_personas:
     - Commuter
     - Shopper
     uplift_visits_pct: 0.1
     uplift_avg_check_pct: 0.05
     uplift_coffee_attach: 0.25
+    time_window:
+    - 6
+    - 11
