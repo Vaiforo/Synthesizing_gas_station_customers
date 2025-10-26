@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-    sys.path.insert(0, str(ROOT / "src"))  # чтобы 'src' тоже был импортируем
+    sys.path.insert(0, str(ROOT / "src"))
 
 try:
     from app._utils import run_demo_pipeline, persist_artifacts, make_downloads
@@ -14,15 +14,12 @@ except ModuleNotFoundError:
     from _utils import run_demo_pipeline, persist_artifacts, make_downloads
 
 
-st.set_page_config(page_title="⚙️ Конфигурация портретов",
-                   page_icon="⚙️", layout="wide")
+st.set_page_config(page_title="Конфигурация портретов", layout="wide")
 
-st.title("⚙️ Конфигурация портретов и кампаний")
+st.title("Конфигурация портретов и кампаний")
 st.markdown(
     """
-Здесь вы можете просмотреть и при необходимости подредактировать параметры синтетических клиентов и кампаний.
-Файл хранится по пути `config/personas.yaml`.  
-После сохранения изменения автоматически вступают в силу при следующем запуске симуляции.
+Здесь вы можете просмотреть и при необходимости подредактировать параметры синтетических клиентов и кампаний
 """
 )
 st.divider()
@@ -30,19 +27,19 @@ st.divider()
 try:
     cfg = load_config()
 except FileNotFoundError:
-    st.error("❌ Не найден config/personas.yaml. Сначала создайте файл конфигурации.")
+    st.error("Не найден config/personas.yaml. Сначала создайте файл конфигурации")
     st.stop()
 
 personas = cfg.get("personas", {})
 campaigns = cfg.get("campaigns", {})
 
-st.subheader("👥 Портреты клиентов")
-st.caption("Основные параметры, влияющие на поведение и генерацию транзакций.")
+st.subheader("Портреты клиентов")
+st.caption("Основные параметры, влияющие на поведение и генерацию транзакций")
 
 cols = st.columns([1, 1, 1, 1])
 for idx, (name, p) in enumerate(personas.items()):
     with cols[idx % 4]:
-        with st.expander(f"🧩 {name}", expanded=(idx == 0)):
+        with st.expander(f"{name}", expanded=(idx == 0)):
             st.text_area("Описание", value=p.get(
                 "description", ""), key=f"{name}_desc")
             p["visits_per_week"] = st.number_input(
@@ -54,10 +51,10 @@ for idx, (name, p) in enumerate(personas.items()):
                 value=float(p.get("avg_check", 1500)), step=50.0, key=f"{name}_check"
             )
             p["coffee_attach_rate"] = st.slider(
-                "Attach-rate кофе", 0.0, 1.0, float(p.get("coffee_attach_rate", 0.5)), key=f"{name}_coffee"
+                "Вероятность покупки кофе", 0.0, 1.0, float(p.get("coffee_attach_rate", 0.5)), key=f"{name}_coffee"
             )
             p["carwash_attach_rate"] = st.slider(
-                "Attach-rate мойки", 0.0, 1.0, float(p.get("carwash_attach_rate", 0.1)), key=f"{name}_carwash"
+                "Вероятность покупки мойки", 0.0, 1.0, float(p.get("carwash_attach_rate", 0.1)), key=f"{name}_carwash"
             )
             p["morning_share"] = st.slider(
                 "Доля утренних визитов", 0.0, 1.0, float(p.get("morning_share", 0.3)), key=f"{name}_morning"
@@ -69,7 +66,7 @@ for idx, (name, p) in enumerate(personas.items()):
 
 st.divider()
 
-st.subheader("🎯 Кампании")
+st.subheader("Кампании")
 st.caption("Настройки uplift-эффектов для экспериментов.")
 
 for idx, (name, c) in enumerate(campaigns.items()):
@@ -91,11 +88,11 @@ for idx, (name, c) in enumerate(campaigns.items()):
 
 st.divider()
 
-if st.button("💾 Сохранить изменения", use_container_width=True):
+if st.button("Сохранить изменения", use_container_width=True):
     cfg["personas"] = personas
     cfg["campaigns"] = campaigns
     save_config(cfg, CONFIG_PATH)
-    st.success(f"✅ Конфигурация сохранена в {CONFIG_PATH}")
-    st.toast("Изменения вступят в силу при следующей генерации данных.")
+    st.success(f"Конфигурация сохранена в {CONFIG_PATH}")
+    st.toast("Изменения вступят в силу при следующей генерации данных")
 else:
-    st.info("Измените параметры и нажмите **Сохранить изменения**, чтобы обновить конфигурацию.")
+    st.info("Измените параметры и нажмите **Сохранить изменения**, чтобы обновить конфигурацию")

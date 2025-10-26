@@ -18,25 +18,23 @@ import sys
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))        # чтобы 'app' был виден как пакет
-    sys.path.insert(0, str(ROOT / "src"))  # чтобы 'src' тоже был импортируем
+    sys.path.insert(0, str(ROOT))
+    sys.path.insert(0, str(ROOT / "src"))
 
 try:
-    # и т.д.
     from app._utils import run_demo_pipeline, persist_artifacts, make_downloads
 except ModuleNotFoundError:
     from _utils import run_demo_pipeline, persist_artifacts, make_downloads
 
 
-st.set_page_config(page_title="📊 Отчёты и графики",
-                   page_icon="📊", layout="wide")
+st.set_page_config(page_title="Отчёты и графики", layout="wide")
 
-st.title("📊 Отчёты: сегменты, визиты, KPI A/B")
-st.caption("Здесь собраны основные визуализации и таблицы для питча: распределение сегментов, активность и результаты экспериментов.")
+st.title("Отчёты: сегменты, визиты, KPI A/B")
+st.caption("Здесь собраны основные визуализации и таблицы для питча: распределение сегментов, активность и результаты экспериментов")
 
 st.divider()
 
-st.subheader("👥 Распределение присвоенных портретов (mapping)")
+st.subheader("Распределение присвоенных портретов (mapping)")
 if Path(MAPPING_CSV).exists():
     mapping = pd.read_csv(MAPPING_CSV)
     seg_counts = mapping["assigned_persona"].value_counts(
@@ -56,7 +54,7 @@ else:
 
 st.divider()
 
-st.subheader("⛽ Распределение количества визитов на клиента")
+st.subheader("Распределение количества визитов на клиента")
 if Path(TRANSACTIONS_CSV).exists():
     tx = pd.read_csv(TRANSACTIONS_CSV)
     visits_per_user = tx.groupby("customer_id")["amount"].count()
@@ -79,7 +77,7 @@ else:
 
 st.divider()
 
-st.subheader("🎯 KPI A/B по кампании (последний запуск)")
+st.subheader("KPI A/B по кампании (последний запуск)")
 if Path(TX_AFTER_CSV).exists() and Path(COHORT_CSV).exists():
     tx_after = pd.read_csv(TX_AFTER_CSV)
     cohort = pd.read_csv(COHORT_CSV)
@@ -93,7 +91,6 @@ if Path(TX_AFTER_CSV).exists() and Path(COHORT_CSV).exists():
     st.markdown("**Сравнение A vs B (дельты, %)**")
     st.dataframe(cmp, use_container_width=True)
 
-    # Небольшие графики для ключевых метрик
     key_metrics = ["visits_per_user", "revenue_per_user"]
     cols = st.columns(len(key_metrics))
     kpi_idx = kpi.set_index("group")
@@ -105,16 +102,16 @@ if Path(TX_AFTER_CSV).exists() and Path(COHORT_CSV).exists():
             st.pyplot(fig, clear_figure=True)
 
     # Downloads
-    st.markdown("### ⬇️ Скачать таблицы")
+    st.markdown("### Скачать таблицы")
     dcols = st.columns(3)
     with dcols[0]:
-        st.download_button("💾 KPI (A/B)", data=df_to_csv_bytes(kpi),
+        st.download_button("KPI (A/B)", data=df_to_csv_bytes(kpi),
                            file_name="kpi_summary.csv", mime="text/csv", use_container_width=True)
     with dcols[1]:
-        st.download_button("💾 Сравнение A vs B", data=df_to_csv_bytes(
+        st.download_button("Сравнение A vs B", data=df_to_csv_bytes(
             cmp), file_name="compare_ab.csv", mime="text/csv", use_container_width=True)
     with dcols[2]:
-        st.download_button("💾 Cohort A/B", data=df_to_csv_bytes(cohort),
+        st.download_button("Cohort A/B", data=df_to_csv_bytes(cohort),
                            file_name="cohort_ab.csv", mime="text/csv", use_container_width=True)
 
 else:
@@ -122,7 +119,7 @@ else:
 
 st.divider()
 
-st.subheader("🧩 Сводка признаков (features) — опционально")
+st.subheader("Сводка признаков (features) — опционально")
 if Path(FEATURES_CSV).exists():
     feats = pd.read_csv(FEATURES_CSV)
     show_cols = [
