@@ -18,6 +18,13 @@ st.set_page_config(
     layout="wide",
 )
 
+if "last_art" not in st.session_state:
+    st.session_state.last_art = None
+    st.session_state.downloads = {}
+    st.session_state.kpi = None
+    st.session_state.compare = None
+    st.session_state.meta = {}
+
 st.title("Синтезация клиентов АЗС для проверки гипотез")
 st.markdown(
     """
@@ -46,7 +53,7 @@ use_mapped = st.checkbox(
 st.divider()
 
 if st.button("Запустить полную симуляцию", use_container_width=True):
-    with st.spinner("Генерация данных и расчёт метрик"):
+    with st.spinner("Генерация данных и расчёт метрик..."):
         art = run_demo_pipeline(
             n_users=int(n_users),
             days=int(days),
@@ -55,31 +62,39 @@ if st.button("Запустить полную симуляцию", use_container
         )
         persist_artifacts(art)
 
+        st.session_state.last_art = art
+        st.session_state.downloads = make_downloads(art)
+        st.session_state.kpi = art.get("kpi")
+        st.session_state.compare = art.get("compare")
+        st.session_state.meta = art.get("meta", {})
+
     st.success("Симуляция завершена!")
-    st.markdown(f"**Кампания:** {art['meta'].get('campaign', 'нет')}  |  "
-                f"Добавлено визитов: {art['meta'].get('added_visits', 0)}")
 
+if st.session_state.last_art is not None:
+    meta = st.session_state.meta or {}
+    st.markdown(f"**Кампания:** `{meta.get('campaign', 'нет')}`  |  "
+                f"Добавлено визитов: {meta.get('added_visits', 0)}")
     st.divider()
 
-    if not art["kpi"].empty:
+    if st.session_state.kpi is not None and not st.session_state.kpi.empty:
         st.subheader("KPI по группам A/B")
-        st.dataframe(art["kpi"], use_container_width=True)
+        st.dataframe(st.session_state.kpi, use_container_width=True)
 
-    if not art["compare"].empty:
+    if st.session_state.compare is not None and not st.session_state.compare.empty:
         st.subheader("Сравнение A vs B")
-        st.dataframe(art["compare"], use_container_width=True)
+        st.dataframe(st.session_state.compare, use_container_width=True)
 
     st.divider()
-
     st.subheader("Скачать результаты")
-    downloads = make_downloads(art)
     cols = st.columns(4)
-    for i, (fname, data) in enumerate(downloads.items()):
+    for i, (fname, data) in enumerate(st.session_state.downloads.items()):
         with cols[i % 4]:
             st.download_button(
-                label=f"{fname}",
+                label=f"💾 {fname}",
                 data=data,
                 file_name=fname,
                 mime="text/csv" if fname.endswith(
                     ".csv") else "application/json",
+                use_container_width=True,
+                key=f"dl_{fname}",
             )
