@@ -1,8 +1,14 @@
-from app._utils import CONFIG_PATH, load_config, save_config
-import yaml
 import streamlit as st
+import yaml
+from app._utils import CONFIG_PATH, load_config, save_config
 import sys
 from pathlib import Path
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+if str(ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(ROOT / "src"))
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))

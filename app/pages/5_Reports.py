@@ -1,3 +1,7 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 from app._utils import (
     load_config,
     cached_kpis,
@@ -10,12 +14,14 @@ from app._utils import (
     TX_AFTER_CSV,
     COHORT_CSV,
 )
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import streamlit as st
 import sys
 from pathlib import Path
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+if str(ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(ROOT / "src"))
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
